@@ -2,30 +2,36 @@ import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 
-def CNR(label, signals, bg):
-    S = np.mean(signals)
-    B = np.mean(bg)
+def CNR(inside, outside):
+    mean_in  = np.mean(inside)
+    std_in   = np.std(inside)
+    mean_out = np.mean(outside)
+    std_out  = np.std(outside)
     
-    sigma_S = np.std(signals)
-    sigma_B = np.std(bg)
+    cnr = abs(mean_in - mean_out) / np.sqrt(0.5 * (std_in**2 + std_out**2)) \
+        if (std_in > 0 and std_out > 0) else 0    
+    print(f"CNR result : {cnr}")
     
-    cnr = abs(S-B)/np.sqrt(sigma_S**2+sigma_B**2)
-    
-    print(f"{label} CNR result : {cnr}")
+    return cnr
 
-def ENL(im, label):
-    mu = np.mean(im)
-    sigma = np.std(im)
+def ENL(inside, outside):
+    mean_in  = np.mean(inside)
+    std_in   = np.std(inside)
+    mean_out = np.mean(outside)
+    std_out  = np.std(outside)
     
-    enl = (mu**2) / (sigma**2)
+    enl = (mean_in / std_in) ** 2 if std_in > 0 else 0
     
-    print(f"{label} ENL Result: {enl}")
+    print(f"ENL Result: {enl}")
+    return enl
 
 def PSNR(label, original, processed):
     mse = np.mean((original - processed) ** 2)
     psnr = 10 * np.log10((255**2) / mse)
 
     print(f"{label} PSNR:", psnr)
+    
+    return psnr
     
 def MSE(label, original, processed):
     original = original.astype(np.float64)
@@ -35,6 +41,9 @@ def MSE(label, original, processed):
 
     print("MSE:", mse)
     
+    return mse
+    
 def AnalysisPreROI(label, original, proccessed):
     PSNR(label, original, proccessed)
     MSE(label, original, proccessed)
+    
