@@ -43,6 +43,16 @@ def MSE(label, original, processed):
     
     return mse
     
+def NM(original, processed):
+    M_Orig = np.mean(original)
+    M_Pro = np.mean(processed)
+    
+    nm = M_Pro / M_Orig
+    
+    print(f"NM : {nm}")
+    
+    return nm
+    
 def AnalysisPreROI(label, original, proccessed):
     PSNR(label, original, proccessed)
     MSE(label, original, proccessed)
