@@ -1,7 +1,5 @@
-import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import itertools
 import scipy.ndimage as ndi
 
 from skimage import exposure
