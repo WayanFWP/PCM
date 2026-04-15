@@ -1,3 +1,4 @@
 .env
-/dataset
+/dataset/assignment
 __pycache__
+*.zip
