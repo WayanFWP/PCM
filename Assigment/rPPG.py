@@ -1,19 +1,21 @@
 import numpy as np
 import cv2
 import time
-import matplotlib.pyplot as plt
+from collections import deque
 from module.segmentation import *
 from module.smoothing import KalmanFilter
+from module.plotter import *
 
-cap = cv2.VideoCapture(1) # still using droid cam :v
+cap          = cv2.VideoCapture(1)
 face_cascade = "dataset/lecture/haarcascade_frontalface_default.xml"
 eye_cascade  = "dataset/lecture/haarcascade_eye.xml"
-prev_time = 0
+prev_time    = 0
+start_time   = time.time()
 
-# Buffer sinyal
-signal_r, signal_g, signal_b = [], [], []
-timestamps = []
-start_time = time.time()
+signal_r   = deque(maxlen=BUFFER_SIZE)
+signal_g   = deque(maxlen=BUFFER_SIZE)
+signal_b   = deque(maxlen=BUFFER_SIZE)
+timestamps = deque(maxlen=BUFFER_SIZE)
 
 forehead_kf = KalmanFilter()
 
@@ -23,7 +25,7 @@ while True:
         break
 
     curr_time = time.time()
-    fps = 1 / (curr_time - prev_time + 1e-9)
+    fps       = 1 / (curr_time - prev_time + 1e-9)
     prev_time = curr_time
 
     cv2.putText(frame, f"FPS: {int(fps)}", (10, 30),
@@ -31,18 +33,13 @@ while True:
 
     bbox_frame, raw_bboxes = faceBBOX(frame, face_cascade, eye_cascade)
 
-    if len(raw_bboxes) > 0:
-        smoothed = forehead_kf.update(raw_bboxes[0])
-    else:
-        smoothed = forehead_kf.predict_only()
+    smoothed = forehead_kf.update(raw_bboxes[0]) if raw_bboxes else forehead_kf.predict_only()
 
     display = bbox_frame.copy()
 
     if smoothed is not None:
         sx, sy, sw, sh = smoothed
-
-        sx = max(0, sx)
-        sy = max(0, sy)
+        sx = max(0, sx);  sy = max(0, sy)
         sw = min(sw, frame.shape[1] - sx)
         sh = min(sh, frame.shape[0] - sy)
 
@@ -63,20 +60,12 @@ while True:
 
     cv2.imshow("Camera", display)
 
+    if len(signal_g) > 1:
+        plot_img = drawSignalPlot(signal_r, signal_g, signal_b)
+        cv2.imshow("rPPG Signal", plot_img)
+
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
-    
+
 cap.release()
 cv2.destroyAllWindows()
-
-if len(signal_g) > 0:
-    plt.figure(figsize=(12, 5))
-    plt.plot(timestamps, signal_r, color='red',   label='R', alpha=0.7)
-    plt.plot(timestamps, signal_g, color='green', label='G', alpha=0.7)
-    plt.plot(timestamps, signal_b, color='blue',  label='B', alpha=0.7)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Mean Intensity")
-    plt.title("rPPG Raw Signal - Forehead ROI")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
