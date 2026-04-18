@@ -5,6 +5,7 @@ from collections import deque
 from module.segmentation import *
 from module.smoothing import KalmanFilter
 from module.plotter import *
+from module.filter import *
 
 cap          = cv2.VideoCapture(1)
 face_cascade = "dataset/lecture/haarcascade_frontalface_default.xml"
@@ -16,6 +17,12 @@ signal_r   = deque(maxlen=BUFFER_SIZE)
 signal_g   = deque(maxlen=BUFFER_SIZE)
 signal_b   = deque(maxlen=BUFFER_SIZE)
 timestamps = deque(maxlen=BUFFER_SIZE)
+
+FFT_INTERVAL = 15
+frame_count  = 0
+
+# State hasil proses sinyal
+state = dict(sig_raw=None, sig_bp=None, bpm=None, freqs=None, power=None)
 
 forehead_kf = KalmanFilter()
 
@@ -59,10 +66,28 @@ while True:
                     timestamps.append(time.time() - start_time)
 
     cv2.imshow("Camera", display)
-
+    
+    
+    frame_count += 1
+    if frame_count % FFT_INTERVAL == 0 and len(signal_g) > 60:
+        sig_raw, sig_bp, bpm, freqs, power = process_signal(signal_g, timestamps)
+        state.update(sig_raw=sig_raw, sig_bp=sig_bp,
+                     bpm=bpm, freqs=freqs, power=power)
     if len(signal_g) > 1:
-        plot_img = drawSignalPlot(signal_r, signal_g, signal_b)
-        cv2.imshow("rPPG Signal", plot_img)
+        vis = build_visualizer(
+            signal_g          = signal_g,
+            sig_raw           = state['sig_raw'],
+            sig_bp            = state['sig_bp'],
+            bpm               = state['bpm'],
+            freqs             = state['freqs'],
+            power             = state['power'],
+        )
+        cv2.imshow("rPPG Analyzer", vis)
+
+    # if len(signal_g) > 1:
+    #     signal_plot = drawSignalPlot(signal_r, signal_g, signal_b)
+                
+    #     cv2.imshow("rPPG Signal", signal_plot)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
