@@ -1,61 +1,77 @@
 import numpy as np
-from scipy.signal import butter, filtfilt, detrend
+from scipy.signal import find_peaks
 
-HR_MIN_BPM = 40
-HR_MAX_BPM = 180
+def LPF(signal, fl, fs):
+    N = len(signal)
+    T = 1 / fs
+    Wc = 2 * np.pi * fl
 
-def bandpass_filter(signal, fps, low_bpm=HR_MIN_BPM, high_bpm=HR_MAX_BPM, order=4):
-    nyq     = fps / 2.0
-    low_hz  = (low_bpm  / 60.0) / nyq
-    high_hz = (high_bpm / 60.0) / nyq
-    low_hz  = np.clip(low_hz,  1e-4, 0.99)
-    high_hz = np.clip(high_hz, 1e-4, 0.99)
-    if low_hz >= high_hz:
-        return signal
-    b, a = butter(order, [low_hz, high_hz], btype='band')
+    denom = (4 / T**2) + (2 * np.sqrt(2) * Wc / T) + Wc**2
+    b1 = ((8 / T**2) - (2 * Wc**2)) / denom
+    b2 = ((4 / T**2) - (2 * np.sqrt(2) * Wc / T) + Wc**2) / denom
+    a0 = Wc**2 / denom
+    a1 = 2 * Wc**2 / denom
+    a2 = a0
+    y = np.zeros(N)
+    for n in range(2, N-2):
+        y[n] = (b1 * y[n-1]) - (b2 * y[n-2]) + (a0 * signal[n]) + (a1 * signal[n-1]) + (a2 * signal[n-2])
+    return y
+  
+def HPF(signal,fh,fs):
+    N = len(signal)
+    T = 1/fs
+    Wc = 2 * np.pi * fh
+
+    denom = (4/T**2) + (2*np.sqrt(2)*Wc/T) + Wc**2
+    b1 = ((8/T**2) - 2*Wc**2)/ denom
+    b2 = ((4/T**2) - (2*np.sqrt(2)*Wc/T) + Wc**2)/ denom
+    a0 = (4/T**2) / denom
+    a1 = (-8/T**2) / denom
+    a2 = a0
+    y = np.zeros(N)
+    for n in range(2, N-1):
+        y[n] = (b1 * y[n-1]) - (b2 * y[n-2]) + (a0 * signal[n]) + (a1 * signal[n-1]) + (a2 * signal[n-2])
+    return y
+    
+# cutoff =  0.65–4 Hz.
+def BPF(signal, fc1, fc2, fs):
+    lpf_data = LPF(signal, fc1, fs)
+    filtered_data = HPF(lpf_data, fc2, fs)
+    return filtered_data
+
+def bandpass(signal, lowcut, highcut, fs):
+    from scipy.signal import butter, filtfilt
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(6, [low, high], btype='band')
     return filtfilt(b, a, signal)
 
+def fft(signal, fs):
+    N = len(signal)
+    window = np.hanning(N)
+    fft_vals = np.fft.rfft(signal * window, n=N)
+    freqs = np.fft.rfftfreq(N, d=1.0/fs)
+    power = np.abs(fft_vals) ** 2
+    return freqs, power
 
-def process_signal(signal_g, timestamps):
-    """
-    Return semua tahapan sinyal sekaligus.
-
-    Returns:
-        sig_raw      : green channel setelah detrend
-        sig_bandpass : setelah bandpass filter
-        bpm          : estimasi heart rate
-        freqs        : array frekuensi FFT (Hz)
-        power        : power spectrum FFT
-    """
-    sig = np.array(signal_g,  dtype=np.float32)
-    ts  = np.array(timestamps, dtype=np.float32)
-
-    if len(sig) < 30:
-        return None, None, None, None, None
-
+def runRGB2BPM(signal_g, timestamps):
+    sig = np.array(signal_g, dtype=np.float32)
+    ts = np.array(timestamps, dtype=np.float32)
+    
     fps = len(ts) / (ts[-1] - ts[0] + 1e-9)
-
-    # ── 1. Detrend ───────────────────────────────────────────────────
-    sig_raw = detrend(sig)
-
-    # ── 2. Bandpass ──────────────────────────────────────────────────
-    sig_bp  = bandpass_filter(sig_raw, fps)
-
-    # ── 3. FFT dari sinyal bandpass ──────────────────────────────────
-    N        = len(sig_bp)
-    window   = np.hanning(N)
-    fft_vals = np.fft.rfft(sig_bp * window, n=N)
-    freqs    = np.fft.rfftfreq(N, d=1.0/fps)
-    power    = np.abs(fft_vals) ** 2
-
-    # ── 4. Peak di rentang HR ────────────────────────────────────────
-    low_hz  = HR_MIN_BPM / 60.0
-    high_hz = HR_MAX_BPM / 60.0
-    mask    = (freqs >= low_hz) & (freqs <= high_hz)
-
-    bpm = None
-    if np.any(mask):
-        peak_freq = freqs[mask][np.argmax(power[mask])]
-        bpm       = peak_freq * 60.0
-
-    return sig_raw, sig_bp, bpm, freqs, power
+    
+    norm = (sig - np.mean(sig)) / np.mean(sig)
+    
+    # filtering = BPF(norm, 0.65, 4.0, fps)
+    filtering = bandpass(norm, 0.65, 4.0, fps)
+    
+    freqs, power = fft(filtering, fps)
+    
+    peaks, _ = find_peaks(filtering, distance=fps*0.5, height=np.mean(filtering))
+    rr_intervals = np.diff(peaks) / fps
+    bpm_interval = 60/rr_intervals
+    
+    bpm = np.mean(bpm_interval) if len(bpm_interval) > 0 else None
+    
+    return norm, filtering, bpm, freqs, power

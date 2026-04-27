@@ -4,15 +4,8 @@ import matplotlib.pyplot as plt
 
 BUFFER_SIZE  = 300   # (≈10 detik di 30fps)
 PLOT_W, PLOT_H = 640, 300
-import numpy as np
-import cv2
-
-HR_MIN_BPM = 40
-HR_MAX_BPM = 180
-
-PLOT_W  = 800
-PANEL_H = 200   # tinggi tiap panel
-GAP     = 1     # garis pemisah antar panel
+PANEL_H = 200   
+GAP     = 1     
 
 BG_COLOR     = (28, 28, 28)
 GRID_COLOR   = (52, 52, 52)
@@ -79,9 +72,6 @@ def panel_bandpass(sig_bp, bpm, width=PLOT_W, height=PANEL_H):
     canvas = np.full((height, width, 3), BG_COLOR, dtype=np.uint8)
     _draw_grid(canvas)
 
-    _label(canvas, "BANDPASS  (40–180 BPM — PPG morphology)", (8, 18),
-           color=(100, 180, 255), scale=0.45, bold=True)
-
     if sig_bp is None or len(sig_bp) < 2:
         _label(canvas, "Processing...", (20, height//2), color=(120,120,120))
         return canvas
@@ -97,7 +87,7 @@ def panel_bandpass(sig_bp, bpm, width=PLOT_W, height=PANEL_H):
     # BPM label
     if bpm is not None:
         color  = (80, 255, 80) if 50 <= bpm <= 150 else (80, 80, 255)
-        _label(canvas, f"HR  {bpm:.1f} BPM", (width//2 - 60, 20),
+        _label(canvas, f"HR  {bpm:.1f} BPM", (width//2, 20),
                color=color, scale=0.6, bold=True)
 
     # Amplitudo (proxy kekuatan sinyal)
@@ -111,15 +101,12 @@ def panel_fft(freqs, power, bpm, width=PLOT_W, height=PANEL_H):
     canvas = np.full((height, width, 3), BG_COLOR, dtype=np.uint8)
     _draw_grid(canvas)
 
-    _label(canvas, "FFT SPECTRUM  (Green Ch. — HR band)", (8, 18),
-           color=(255, 180, 80), scale=0.45, bold=True)
-
     if freqs is None or power is None:
         _label(canvas, "Collecting...", (20, height//2), color=(120,120,120))
         return canvas
 
-    low_hz  = HR_MIN_BPM / 60.0
-    high_hz = HR_MAX_BPM / 60.0
+    low_hz  = 0.7
+    high_hz = 4
     mask    = (freqs >= low_hz) & (freqs <= high_hz)
 
     freqs_v = freqs[mask]
@@ -160,15 +147,6 @@ def panel_fft(freqs, power, bpm, width=PLOT_W, height=PANEL_H):
             cv2.line(canvas, (x_pos, height-18), (x_pos, height-12), (90,90,90), 1)
             _label(canvas, f"{bpm_v:.0f}", (x_pos - 10, height - 3),
                    color=(110, 110, 110), scale=0.32)
-
-    # Label BPM di atas peak
-    if bpm is not None:
-        peak_x = int((freqs_v[peak_idx] - low_hz) / (high_hz - low_hz) * width)
-        y_peak = int((1 - power_norm[peak_idx]) * (height - 25)) + 10
-        _label(canvas, f"{bpm:.1f} BPM", (max(0, peak_x - 25), max(14, y_peak - 5)),
-               color=(80, 255, 120), scale=0.45, bold=True)
-
-    _label(canvas, "BPM →", (8, height - 4), color=(90, 90, 90), scale=0.35)
     return canvas
 
 
