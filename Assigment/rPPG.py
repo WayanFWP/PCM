@@ -5,6 +5,7 @@ from collections import deque
 from module.segmentation import *
 from module.smoothing import KalmanFilter
 from module.plotter import *
+from module.filter import *
 
 cap          = cv2.VideoCapture(1)
 face_cascade = "dataset/lecture/haarcascade_frontalface_default.xml"
@@ -17,6 +18,12 @@ signal_g   = deque(maxlen=BUFFER_SIZE)
 signal_b   = deque(maxlen=BUFFER_SIZE)
 timestamps = deque(maxlen=BUFFER_SIZE)
 
+FFT_INTERVAL = 10 # in frames
+frame_count  = 0 # in frames
+
+# State hasil proses sinyal
+state = dict(sig_raw=None, sig_bp=None, bpm=None, freqs=None, power=None)
+
 forehead_kf = KalmanFilter()
 
 while True:
@@ -27,8 +34,13 @@ while True:
     curr_time = time.time()
     fps       = 1 / (curr_time - prev_time + 1e-9)
     prev_time = curr_time
-
+    elapse_time = int(curr_time - start_time)
+    
     cv2.putText(frame, f"FPS: {int(fps)}", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, f"BPM: {state['bpm']:.1f}" if state['bpm'] is not None else "BPM: --", (10, 70),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, f"{elapse_time}", (10, 110),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     bbox_frame, raw_bboxes = faceBBOX(frame, face_cascade, eye_cascade)
@@ -59,10 +71,25 @@ while True:
                     timestamps.append(time.time() - start_time)
 
     cv2.imshow("Camera", display)
-
+    
+    frame_count += 1
+    if frame_count % FFT_INTERVAL == 0 and len(signal_g) > 60:
+        sig_raw, sig_bp, bpm, freqs, power = runRGB2BPM(signal_g, timestamps)
+        state.update(sig_raw=sig_raw, sig_bp=sig_bp,
+                     bpm=bpm, freqs=freqs, power=power)
+        
+        
+    # plotter rPPG
     if len(signal_g) > 1:
-        plot_img = drawSignalPlot(signal_r, signal_g, signal_b)
-        cv2.imshow("rPPG Signal", plot_img)
+        vis = build_visualizer(
+            signal_g          = signal_g,
+            sig_raw           = state['sig_raw'],
+            sig_bp            = state['sig_bp'],
+            bpm               = state['bpm'],
+            freqs             = state['freqs'],
+            power             = state['power'],
+        )
+        cv2.imshow("rPPG Analyzer", vis)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
