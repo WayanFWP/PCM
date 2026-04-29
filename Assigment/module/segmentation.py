@@ -1,16 +1,22 @@
 import numpy as np
 import cv2
 
-def faceBBOX(img, path1, path2=None):
+face_cascade = "dataset/lecture/haarcascade_frontalface_default.xml"
+eye_cascade  = "dataset/lecture/haarcascade_eye.xml"
+
+HaarCascade = dict(face=face_cascade, eye=eye_cascade)
+face_cascade = cv2.CascadeClassifier(HaarCascade["face"])
+eye_cascade_classifier = cv2.CascadeClassifier(HaarCascade["eye"])
+
+def faceBBOX(img, eye_detection=True):
     face = img.copy()
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    face_cascade = cv2.CascadeClassifier(path1)
     face_rects = face_cascade.detectMultiScale(gray, 1.3, 5)
 
     eye_cascade = None
-    if path2 is not None:
-        eye_cascade = cv2.CascadeClassifier(path2)
+    if eye_detection is not None:
+        eye_cascade = eye_cascade_classifier
 
     raw_bboxes = []  
 
