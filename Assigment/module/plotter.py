@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-BUFFER_SIZE  = 300   # (≈10 detik di 30fps)
+BUFFER_SIZE  = 600   # (≈10 detik di 30fps)
 PLOT_W, PLOT_H = 640, 300
 PANEL_H = 200   
 GAP     = 1     

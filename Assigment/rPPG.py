@@ -7,11 +7,10 @@ from module.smoothing import KalmanFilter
 from module.plotter import *
 from module.filter import *
 
-cap          = cv2.VideoCapture(1)
-face_cascade = "dataset/lecture/haarcascade_frontalface_default.xml"
-eye_cascade  = "dataset/lecture/haarcascade_eye.xml"
+cap          = cv2.VideoCapture(0)
 prev_time    = 0
 start_time   = time.time()
+last_fft_time = 0
 
 signal_r   = deque(maxlen=BUFFER_SIZE)
 signal_g   = deque(maxlen=BUFFER_SIZE)
@@ -19,9 +18,9 @@ signal_b   = deque(maxlen=BUFFER_SIZE)
 timestamps = deque(maxlen=BUFFER_SIZE)
 
 FFT_INTERVAL = 10 # in frames
-frame_count  = 0 # in frames
+DETECT_INTERVAL = 5 # in frames
+frame_count  = 0 # in iteration
 
-# State hasil proses sinyal
 state = dict(sig_raw=None, sig_bp=None, bpm=None, freqs=None, power=None)
 
 forehead_kf = KalmanFilter()
@@ -35,6 +34,7 @@ while True:
     fps       = 1 / (curr_time - prev_time + 1e-9)
     prev_time = curr_time
     elapse_time = int(curr_time - start_time)
+    frame_count += 1
     
     cv2.putText(frame, f"FPS: {int(fps)}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -43,8 +43,12 @@ while True:
     cv2.putText(frame, f"{elapse_time}", (10, 110),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    bbox_frame, raw_bboxes = faceBBOX(frame, face_cascade, eye_cascade)
-
+    if frame_count % DETECT_INTERVAL == 0:
+        bbox_frame, raw_bboxes = faceBBOX(frame, True)
+    else:
+        raw_bboxes = []
+        bbox_frame = frame
+    
     smoothed = forehead_kf.update(raw_bboxes[0]) if raw_bboxes else forehead_kf.predict_only()
 
     display = bbox_frame.copy()
@@ -53,7 +57,9 @@ while True:
         sx, sy, sw, sh = smoothed
         sx = max(0, sx);  sy = max(0, sy)
         sw = min(sw, frame.shape[1] - sx)
-        sh = min(sh, frame.shape[0] - sy)
+        sh = min(sh, frame.shape[0] - sy) - 15
+        
+        print(sw, sh)
 
         if sw > 0 and sh > 0:
             cv2.rectangle(display, (sx, sy), (sx+sw, sy+sh), (0, 255, 0), 2)
@@ -72,13 +78,11 @@ while True:
 
     cv2.imshow("Camera", display)
     
-    frame_count += 1
-    if frame_count % FFT_INTERVAL == 0 and len(signal_g) > 60:
+    if curr_time - last_fft_time > 0.5  and len(signal_g) > 60:
         sig_raw, sig_bp, bpm, freqs, power = runRGB2BPM(signal_g, timestamps)
         state.update(sig_raw=sig_raw, sig_bp=sig_bp,
                      bpm=bpm, freqs=freqs, power=power)
-        
-        
+                
     # plotter rPPG
     if len(signal_g) > 1:
         vis = build_visualizer(
