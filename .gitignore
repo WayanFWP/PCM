@@ -2,6 +2,7 @@
 /dataset/Assigments
 __pycache__
 *.zip
+__init__.py
 
 .opencode
 AGENTS.md
