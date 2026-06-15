@@ -93,8 +93,8 @@ def dilate(img, kernel_size=3, iterations=1):
     return cv2.dilate(img, k, iterations=iterations)
 
 
-def xml_to_mask(xml_path, image_shape):
-    tree = ET.parse(xml_path)
+def xml_to_mask(xml_source, image_shape):
+    tree = ET.parse(xml_source)
     mask = np.zeros(image_shape[:2], dtype=np.uint8)
     for region in tree.findall(".//Region"):
         pts = []
@@ -161,6 +161,17 @@ def watershed_nuclei(binary_mask, dist_thresh=0.35):
     result = np.zeros_like(binary_mask)
     result[markers > 1] = 255
     return result
+
+
+def gaussian_blur(img, ksize=5):
+    return cv2.GaussianBlur(img, (ksize, ksize), 0)
+
+
+def apply_pipeline(img_bgr, stages):
+    img = hed_convert(img_bgr)
+    for _name, fn, kwargs in stages:
+        img = fn(img, **kwargs)
+    return img
 
 
 def plot_pipeline(img_rgb, gt_mask, pred_mask, dice, iou, title=""):

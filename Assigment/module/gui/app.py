@@ -1,29 +1,22 @@
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import streamlit as st
 
 st.set_page_config(
     page_title="Nucleus Segmentation",
-    page_icon="🔬",
     layout="wide",
 )
 
-st.title("Nucleus Segmentation Pipeline")
+st.title("Nucleus Segmentation — MoNuSeg 2018")
 st.markdown(
     """
-    This app demonstrates nucleus segmentation on **MoNuSeg 2018** H&E-stained tissue images.
+    **Two pages available via the sidebar:**
 
-    Each page runs a different preprocessing/segmentation pipeline optimized for a specific
-    tissue sample:
-
-    | Page | Sample | Key Operations |
-    |------|--------|---------------|
-    | **AR** | TCGA-AR-A1AS | median → bilateral → otsu → filter → morph → dilate |
-    | **AY** | TCGA-AY-A8YK | bilateral → clahe → percentile thresh → dilate |
-    | **E2** | TCGA-E2-A1B5 | median → otsu → morph_clean |
-    | **RD** | TCGA-RD-A8N9 | clahe → otsu → watershed → dilate |
-
-    Use the sidebar to navigate between samples.
+    | Page | Description |
+    |------|-------------|
+    | **Pipelines** | Pre-tuned pipelines for 4 tissue samples in a 2×2 grid. Click *View Image* to see the 4-panel overlay. |
+    | **Random Search** | Brute-force random search over preprocessing/segmentation parameter space. Configure ranges, run trials, and find the best pipeline per sample. |
     """
 )
